@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:fn="http://www.w3.org/2005/xpath-functions"
+           xmlns:dfdl="http://www.ogf.org/dfdl/dfdl-1.0/" xmlns:ex="http://example.com"
+           targetNamespace="http://example.com" elementFormDefault="unqualified">
+
+    <xs:include schemaLocation="org/apache/daffodil/xsd/DFDLGeneralFormat.dfdl.xsd" />
+
+    <xs:annotation>
+        <xs:appinfo source="http://www.ogf.org/dfdl/">
+
+            <dfdl:defineEscapeScheme name="csvBlockQuoteEscaped">
+                <dfdl:escapeScheme escapeKind="escapeBlock" escapeBlockStart='"' escapeBlockEnd='"'
+                                   escapeEscapeCharacter='\' extraEscapedCharacters="" generateEscapeBlock="whenNeeded" />
+            </dfdl:defineEscapeScheme>
+
+            <dfdl:format ref="ex:GeneralFormat" separator="" initiator=""
+                         terminator="" leadingSkip='0' textTrimKind="none" initiatedContent="no"
+                         alignment="implicit" alignmentUnits="bits" trailingSkip="0" ignoreCase="no"
+                         separatorPosition="infix" occursCountKind="implicit"
+                         emptyValueDelimiterPolicy="both" representation="text" textNumberRep="standard"
+                         lengthKind="delimited" encoding="ASCII" escapeSchemeRef="ex:csvBlockQuoteEscaped"
+                         separatorSuppressionPolicy="anyEmpty" outputNewLine="%LF;" />
+        </xs:appinfo>
+    </xs:annotation>
+
+    <xs:element name="file">
+        <xs:complexType>
+            <xs:sequence dfdl:separator="%NL;" dfdl:separatorPosition="postfix">
+                <xs:element name="header" minOccurs="0" maxOccurs="1"
+                            dfdl:occursCountKind="implicit">
+                    <xs:complexType>
+                        <xs:sequence dfdl:separator=",">
+                            <xs:element name="title" type="xs:string" maxOccurs="unbounded" />
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="record" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence dfdl:separator=",">
+                            <xs:element name="item" maxOccurs="unbounded"
+                                        dfdl:occursCount="{ fn:count(../../header/title) }"
+                                        dfdl:occursCountKind="expression">
+                                <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                        <xs:maxLength value="10" />
+                                    </xs:restriction>
+                                </xs:simpleType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+</xs:schema>
