@@ -20,6 +20,7 @@ import io.prometheus.client.CollectorRegistry;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.nifi.action.Action;
 import org.apache.nifi.action.Component;
 import org.apache.nifi.action.FlowChangeAction;
@@ -450,8 +451,6 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import static org.apache.commons.lang3.StringUtils.containsIgnoreCase;
 
 /**
  * Implementation of NiFiServiceFacade that performs revision checking.
@@ -4614,7 +4613,7 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
     }
 
     private boolean isMatched(final String label, final String query) {
-        return StringUtils.isEmpty(query) || containsIgnoreCase(label, query);
+        return StringUtils.isEmpty(query) || Strings.CI.contains(label, query);
     }
 
     private UserEntity createUserEntity(final User user, final boolean enforceUserExistence) {
@@ -6846,18 +6845,34 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
     }
 
     public Stream<RuleViolation> getRuleViolationStream(String processGroupId) {
+        if (ruleViolationsManager.isEmpty()) {
+            return Stream.empty();
+        }
+
         ProcessGroup processGroup = processGroupDAO.getProcessGroup(processGroupId);
 
-        Collection<RuleViolation> ruleViolations = ruleViolationsManager.getRuleViolationsForGroup(processGroupId);
+        if (processGroup.getIdentifier().equals(processGroupDAO.getProcessGroup(FlowManager.ROOT_GROUP_ID_ALIAS).getIdentifier())) {
+            return ruleViolationsManager.getAllRuleViolations().stream();
+        } else {
 
-        Stream<RuleViolation> ruleViolationStreamForGroupAndAllChildren = Stream.concat(
-            ruleViolations.stream(),
-            processGroup.getProcessGroups().stream()
-                .map(ProcessGroup::getIdentifier)
-                .flatMap(this::getRuleViolationStream)
-        );
+            Set<String> allIdsOfProcessGroupAndChildren = new HashSet<>();
 
-        return ruleViolationStreamForGroupAndAllChildren;
+            collectGroupIdsRecursively(processGroupId, allIdsOfProcessGroupAndChildren);
+
+            Collection<RuleViolation> ruleViolations = ruleViolationsManager.getRuleViolationsForGroups(allIdsOfProcessGroupAndChildren);
+
+            return ruleViolations.stream();
+        }
+    }
+
+    private void collectGroupIdsRecursively(String processGroupId, Set<String> allIdsOfProcessGroupAndChildren) {
+        allIdsOfProcessGroupAndChildren.add(processGroupId);
+
+        ProcessGroup processGroup = processGroupDAO.getProcessGroup(processGroupId);
+        Set<ProcessGroup> children = processGroup.getProcessGroups();
+        for (ProcessGroup child : children) {
+            collectGroupIdsRecursively(child.getIdentifier(), allIdsOfProcessGroupAndChildren);
+        }
     }
 
     public FlowAnalysisResultEntity createFlowAnalysisResultEntity(Collection<RuleViolation> ruleViolations) {
