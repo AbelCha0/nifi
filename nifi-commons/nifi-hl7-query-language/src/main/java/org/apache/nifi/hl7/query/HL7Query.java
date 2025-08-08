@@ -201,12 +201,10 @@ public class HL7Query {
     }
 
     private IntegerEvaluator buildIntegerEvaluator(final Tree tree) {
-        switch (tree.getType()) {
-            case NUMBER:
-                return new IntegerLiteralEvaluator(Integer.parseInt(tree.getText()));
-            default:
-                throw new HL7QueryParsingException("Failed to build Integer Evaluator for " + tree.getText());
+        if (tree.getType() == NUMBER) {
+            return new IntegerLiteralEvaluator(Integer.parseInt(tree.getText()));
         }
+        throw new HL7QueryParsingException("Failed to build Integer Evaluator for " + tree.getText());
     }
 
     private BooleanEvaluator buildBooleanEvaluator(final Tree tree) {
@@ -293,7 +291,7 @@ public class HL7Query {
     public QueryResult evaluate(final HL7Message message) {
 
         int totalIterations = 1;
-        final LinkedHashMap<String, List<Object>> possibleValueMap = new LinkedHashMap<>();
+        final Map<String, List<Object>> possibleValueMap = new LinkedHashMap<>();
         for (final Declaration declaration : declarations) {
             final Object value = declaration.getDeclaredValue(message);
             if (value == null && declaration.isRequired()) {
@@ -344,7 +342,7 @@ public class HL7Query {
      * between multiple invocations of this method.
      * package protected for testing visibility
      */
-    static Map<String, Object> assignAliases(final LinkedHashMap<String, List<Object>> possibleValues, final int iteration) {
+    static Map<String, Object> assignAliases(final Map<String, List<Object>> possibleValues, final int iteration) {
         final Map<String, Object> aliasMap = new HashMap<>();
 
         int divisor = 1;

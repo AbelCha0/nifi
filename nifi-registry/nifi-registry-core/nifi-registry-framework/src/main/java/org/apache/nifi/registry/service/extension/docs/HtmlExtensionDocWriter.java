@@ -340,7 +340,7 @@ public class HtmlExtensionDocWriter implements ExtensionDocWriter {
                 xmlStreamWriter.writeEndElement();
                 xmlStreamWriter.writeStartElement("td");
                 xmlStreamWriter.writeAttribute("id", "description");
-                if (property.getDescription() != null && property.getDescription().trim().length() > 0) {
+                if (property.getDescription() != null && !property.getDescription().isBlank()) {
                     xmlStreamWriter.writeCharacters(property.getDescription());
                 } else {
                     xmlStreamWriter.writeCharacters("No Description Provided.");
@@ -353,7 +353,7 @@ public class HtmlExtensionDocWriter implements ExtensionDocWriter {
 
                 if (property.isExpressionLanguageSupported()) {
                     xmlStreamWriter.writeEmptyElement("br");
-                    String text = "Supports Expression Language: true";
+                    StringBuilder text = new StringBuilder("Supports Expression Language: true");
                     final String perFF = " (will be evaluated using flow file attributes and Environment variables)";
                     final String registry = " (will be evaluated using Environment variables only)";
                     final InputRequirement inputRequirement = extension.getInputRequirement();
@@ -361,22 +361,21 @@ public class HtmlExtensionDocWriter implements ExtensionDocWriter {
                     switch (property.getExpressionLanguageScope()) {
                         case FLOWFILE_ATTRIBUTES:
                             if (inputRequirement != null && inputRequirement.equals(InputRequirement.INPUT_FORBIDDEN)) {
-                                text += registry;
+                                text.append(registry);
                             } else {
-                                text += perFF;
+                                text.append(perFF);
                             }
                             break;
                         case ENVIRONMENT:
-                            text += registry;
+                            text.append(registry);
                             break;
                         case NONE:
-                        default:
                             // in case legacy/deprecated method has been used to specify EL support
-                            text += " (undefined scope)";
+                            text.append(" (undefined scope)");
                             break;
                     }
 
-                    writeSimpleElement(xmlStreamWriter, "strong", text);
+                    writeSimpleElement(xmlStreamWriter, "strong", text.toString());
                 }
                 xmlStreamWriter.writeEndElement();
 
@@ -495,18 +494,13 @@ public class HtmlExtensionDocWriter implements ExtensionDocWriter {
                         text = "Supports Expression Language: false";
                     }
                 } else {
-                    switch (elScope) {
-                        case FLOWFILE_ATTRIBUTES:
-                            text = "Supports Expression Language: true (will be evaluated using flow file attributes and env/syst variables registry)";
-                            break;
-                        case ENVIRONMENT:
-                            text = "Supports Expression Language: true (will be evaluated using env/syst variables registry only)";
-                            break;
-                        case NONE:
-                        default:
-                            text = "Supports Expression Language: false";
-                            break;
-                    }
+                    text = switch (elScope) {
+                        case FLOWFILE_ATTRIBUTES ->
+                                "Supports Expression Language: true (will be evaluated using flow file attributes and env/syst variables registry)";
+                        case ENVIRONMENT ->
+                                "Supports Expression Language: true (will be evaluated using env/syst variables registry only)";
+                        default -> "Supports Expression Language: false";
+                    };
                 }
 
                 writeSimpleElement(xmlStreamWriter, "strong", text);
@@ -607,9 +601,6 @@ public class HtmlExtensionDocWriter implements ExtensionDocWriter {
                     break;
                 case INPUT_REQUIRED:
                     xmlStreamWriter.writeCharacters("This component requires an incoming relationship.");
-                    break;
-                default:
-                    xmlStreamWriter.writeCharacters("This component does not have input requirement.");
                     break;
             }
         }

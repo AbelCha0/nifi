@@ -538,6 +538,18 @@ public class FlowController implements ReportingTaskProvider, FlowAnalysisRulePr
             throw new RuntimeException("Unable to create Content Repository", e);
         }
 
+        // Start Embedded ZooKeeper when enabled before other references to State Manager Provider
+        if (nifiProperties.isStartEmbeddedZooKeeper() && configuredForClustering) {
+            try {
+                zooKeeperStateServer = ZooKeeperStateServer.create(nifiProperties);
+                zooKeeperStateServer.start();
+            } catch (final IOException | ConfigException e) {
+                throw new IllegalStateException("Unable to initialize Flow because NiFi was configured to start an Embedded Zookeeper server but failed to do so", e);
+            }
+        } else {
+            zooKeeperStateServer = null;
+        }
+
         lifecycleStateManager = new StandardLifecycleStateManager();
         processScheduler = new StandardProcessScheduler(timerDrivenEngineRef.get(), this, stateManagerProvider, this.nifiProperties, lifecycleStateManager);
 
@@ -662,18 +674,6 @@ public class FlowController implements ReportingTaskProvider, FlowAnalysisRulePr
             snapshotMillis = FormatUtils.getTimeDuration(snapshotFrequency, TimeUnit.MILLISECONDS);
         } catch (final Exception e) {
             snapshotMillis = FormatUtils.getTimeDuration(NiFiProperties.DEFAULT_COMPONENT_STATUS_SNAPSHOT_FREQUENCY, TimeUnit.MILLISECONDS);
-        }
-
-        // Initialize the Embedded ZooKeeper server, if applicable
-        if (nifiProperties.isStartEmbeddedZooKeeper() && configuredForClustering) {
-            try {
-                zooKeeperStateServer = ZooKeeperStateServer.create(nifiProperties);
-                zooKeeperStateServer.start();
-            } catch (final IOException | ConfigException e) {
-                throw new IllegalStateException("Unable to initialize Flow because NiFi was configured to start an Embedded Zookeeper server but failed to do so", e);
-            }
-        } else {
-            zooKeeperStateServer = null;
         }
 
         final boolean analyticsEnabled = Boolean.parseBoolean(nifiProperties.getProperty(NiFiProperties.ANALYTICS_PREDICTION_ENABLED, NiFiProperties.DEFAULT_ANALYTICS_PREDICTION_ENABLED));
@@ -1067,6 +1067,12 @@ public class FlowController implements ReportingTaskProvider, FlowAnalysisRulePr
                 }
             }, 0L, 30L, TimeUnit.SECONDS);
 
+            final String registrySyncInterval = nifiProperties.getProperty("nifi.flowcontroller.registry.sync.interval", "30 min");
+            final long registrySyncIntervalSeconds = FormatUtils.getTimeDuration(registrySyncInterval, TimeUnit.SECONDS);
+
+            LOG.info("Scheduled Flow Registry synchronization every {}", registrySyncInterval);
+
+            // Schedule the flow registry synchronization task
             timerDrivenEngineRef.get().scheduleWithFixedDelay(() -> {
                 final ProcessGroup rootGroup = flowManager.getRootGroup();
                 final List<ProcessGroup> allGroups = rootGroup.findAllProcessGroups();
@@ -1079,7 +1085,7 @@ public class FlowController implements ReportingTaskProvider, FlowAnalysisRulePr
                         LOG.error("Failed to synchronize {} with Flow Registry", group, e);
                     }
                 }
-            }, 5, 30, TimeUnit.MINUTES);
+            }, 300, registrySyncIntervalSeconds, TimeUnit.SECONDS);
 
             initialized.set(true);
         } finally {
@@ -1466,6 +1472,7 @@ public class FlowController implements ReportingTaskProvider, FlowAnalysisRulePr
      * @return the ExtensionManager used for instantiating Processors,
      * Prioritizers, etc.
      */
+    @Override
     public ExtensionManager getExtensionManager() {
         return extensionManager;
     }
@@ -2416,6 +2423,11 @@ public class FlowController implements ReportingTaskProvider, FlowAnalysisRulePr
         final CounterRepository counterRepo = counterRepositoryRef.get();
         final Counter resetValue = counterRepo.resetCounter(identifier);
         return resetValue;
+    }
+
+    public List<Counter> resetAllCounters() {
+        final CounterRepository counterRepo = counterRepositoryRef.get();
+        return counterRepo.resetAllCounters();
     }
 
     public class GroupStatusCounts {

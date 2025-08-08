@@ -35,6 +35,7 @@ import org.apache.nifi.kafka.processors.consumer.OffsetTracker;
 import org.apache.nifi.kafka.processors.consumer.ProcessingStrategy;
 import org.apache.nifi.kafka.processors.consumer.bundle.ByteRecordBundler;
 import org.apache.nifi.kafka.processors.consumer.convert.FlowFileStreamKafkaMessageConverter;
+import org.apache.nifi.kafka.processors.consumer.convert.InjectOffsetRecordStreamKafkaMessageConverter;
 import org.apache.nifi.kafka.processors.consumer.convert.KafkaMessageConverter;
 import org.apache.nifi.kafka.processors.consumer.convert.RecordStreamKafkaMessageConverter;
 import org.apache.nifi.kafka.processors.consumer.convert.WrapperRecordStreamKafkaMessageConverter;
@@ -564,7 +565,6 @@ public class ConsumeKafka extends AbstractProcessor implements VerifiableProcess
                 final Iterator<ByteRecord> demarcatedRecords = transformDemarcator(context, consumerRecords);
                 processInputFlowFile(session, offsetTracker, demarcatedRecords);
             }
-            default -> throw new IllegalStateException("Processing Strategy not supported [%s]".formatted(processingStrategy));
         }
     }
 
@@ -586,7 +586,19 @@ public class ConsumeKafka extends AbstractProcessor implements VerifiableProcess
         final KafkaMessageConverter converter;
         if (outputStrategy == OutputStrategy.USE_VALUE) {
             converter = new RecordStreamKafkaMessageConverter(readerFactory, writerFactory, headerEncoding, headerNamePattern,
-                keyEncoding, commitOffsets, offsetTracker, getLogger(), brokerUri);
+                    keyEncoding, commitOffsets, offsetTracker, getLogger(), brokerUri);
+        } else if (outputStrategy == OutputStrategy.INJECT_OFFSET) {
+            converter = new InjectOffsetRecordStreamKafkaMessageConverter(
+                    readerFactory,
+                    writerFactory,
+                    headerEncoding,
+                    headerNamePattern,
+                    keyEncoding,
+                    commitOffsets,
+                    offsetTracker,
+                    getLogger(),
+                    brokerUri
+            );
         } else {
             final RecordReaderFactory keyReaderFactory = keyFormat == KeyFormat.RECORD
                 ? context.getProperty(KEY_RECORD_READER).asControllerService(RecordReaderFactory.class) : null;

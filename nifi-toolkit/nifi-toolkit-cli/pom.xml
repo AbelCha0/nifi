@@ -24,7 +24,7 @@
     <description>Tooling to make tls configuration easier</description>
 
     <properties>
-        <jline.version>3.30.4</jline.version>
+        <jline.version>3.30.5</jline.version>
     </properties>
 
     <build>
@@ -119,7 +119,7 @@
         <dependency>
             <groupId>com.opencsv</groupId>
             <artifactId>opencsv</artifactId>
-            <version>5.11.2</version>
+            <version>5.12.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-logging</groupId>
